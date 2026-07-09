@@ -1,0 +1,25 @@
+# LUNGA — Cloudflare Workers config
+# Deploy: cd backend && wrangler deploy
+
+name = "lunga-backend"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# KV namespace for subscription storage
+# Create first: wrangler kv:namespace create LUNGA_KV
+# Then paste the ID below:
+[[kv_namespaces]]
+binding = "LUNGA_KV"
+id = "your-kv-namespace-id-here"
+
+# Secrets (set via: wrangler secret put <NAME>)
+# wrangler secret put PAYFAST_MERCHANT_ID
+# wrangler secret put PAYFAST_MERCHANT_KEY
+# wrangler secret put PAYFAST_PASSPHRASE
+# wrangler secret put UNLOCK_SECRET
+# wrangler secret put ITN_URL
+
+# Routes (uncomment after domain setup)
+# [[routes]]
+# pattern = "lunga.co.za/api/*"
+# custom_domain = true

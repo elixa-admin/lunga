@@ -1,0 +1,6 @@
+<svg width="220" height="40" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lunga">
+  <title>Lunga</title>
+  <!-- Dark-background variant: white wordmark + bright punch dot. Same geometry as lunga-logo.svg. -->
+  <text x="0" y="29" font-family="'Hanken Grotesk',system-ui,sans-serif" font-size="30" font-weight="700" fill="#FFFFFF" letter-spacing="8">LUNGA</text>
+  <circle cx="148" cy="30" r="4.2" fill="#FF4D1A"/>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "name": "lunga-backend",
+  "version": "1.0.0",
+  "description": "Lunga — PayFast ITN webhook + subscription handler",
+  "main": "worker.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node src/test.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lunga — Create invoice</title>
+<meta name="description" content="Create a compliant tax invoice in two minutes. Free 14-day trial.">
+<link rel="icon" type="image/svg+xml" href="assets/lunga-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/lunga.css">
+<script src="vendor/jspdf.umd.min.js"></script>
+<style>
+  /* app-specific layer — inherits lunga.css. Invoice preview uses the --fs-* scale. */
+  .topbar{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;max-width:1340px;margin:0 auto;padding:0 var(--s5)}
+  .topbar a.logo img{height:26px}
+  .top-actions{display:flex;gap:10px;align-items:center}
+  .pill{font-size:var(--fs-xs);font-weight:600;padding:5px 12px;border-radius:var(--r-sm);font-variant-numeric:tabular-nums}
+  .pill-trial{background:var(--coral-soft);color:var(--ink);border:1px solid var(--coral)}
+  .pill-active{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+  .pill-expired{background:var(--error-bg);color:var(--error);border:1px solid var(--error-line)}
+
+  .trial-banner{background:var(--coral-soft);border-bottom:1px solid var(--coral);padding:9px var(--s5);text-align:center;font-size:13.5px;color:var(--ink)}
+  .trial-banner a{color:var(--ink);font-weight:700;text-decoration:underline}
+
+  .ws{display:grid;grid-template-columns:1fr 1fr;height:calc(100vh - 60px);min-height:680px}
+  .pane{overflow-y:auto;padding:26px 28px}
+  .pane.left{border-right:1px solid var(--line);background:var(--surface-2)}
+  .pane.right{background:var(--paper);display:flex;flex-direction:column;align-items:center;padding:26px}
+
+  .stitle{font-size:var(--fs-xs);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);margin:var(--s6) 0 var(--s3);padding-bottom:7px;border-bottom:1.5px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .stitle:first-of-type{margin-top:6px}
+
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+  .g3{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:var(--s3)}
+
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--white);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);margin-top:var(--s2)}
+  .toggle-row .lb{font-size:var(--fs-sm);font-weight:600}
+  .toggle-row .sb{font-size:var(--fs-xs);color:var(--g600);font-weight:400;display:block;margin-top:1px}
+  .sw{position:relative;width:42px;height:24px;flex:none}
+  .sw input{opacity:0;width:0;height:0}
+  .sw .sl{position:absolute;inset:0;background:var(--line);border-radius:var(--r-xl);transition:.2s;cursor:pointer}
+  .sw .sl::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:var(--white);border-radius:50%;transition:.2s}
+  .sw input:checked + .sl{background:var(--ink)}
+  .sw input:checked + .sl::before{transform:translateX(18px)}
+
+  .items-head{display:grid;grid-template-columns:1.6fr .5fr .8fr .9fr 28px;gap:var(--s2);font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g600);margin:var(--s2) 2px}
+  .item-row{display:grid;grid-template-columns:1.6fr .5fr .8fr .9fr 28px;gap:var(--s2);margin-bottom:var(--s2);align-items:start}
+  .item-row input{padding:7px 9px;font-size:13px}
+  .item-amt{padding:7px 9px;font-size:13px;text-align:right;background:var(--surface-2);border-radius:var(--r-md);min-height:33px;display:flex;align-items:center;justify-content:flex-end;font-variant-numeric:tabular-nums}
+  .item-del{background:none;border:none;color:var(--g400);cursor:pointer;font-size:18px;padding:6px 4px;border-radius:var(--r-sm)}
+  .item-del:hover{color:var(--error);background:var(--error-bg)}
+  .add-item{background:transparent;color:var(--ink);border:1.5px dashed var(--line);border-radius:var(--r-md);padding:9px;font-weight:600;font-size:13px;cursor:pointer;width:100%;margin-top:4px}
+  .add-item:hover{border-color:var(--ink);background:var(--surface-2)}
+
+  .totals-box{background:var(--white);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);margin-top:var(--s4)}
+  .totals-box .trow{display:flex;justify-content:space-between;padding:5px 0;font-size:var(--fs-sm)}
+  .totals-box .trow.gt{border-top:1.5px solid var(--ink);margin-top:7px;padding-top:11px;font-weight:700;font-size:var(--fs-h3);color:var(--ink)}
+  .totals-box .trow .v{font-variant-numeric:tabular-nums;font-weight:500}
+
+  .compliance-note{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:var(--fs-sm);margin-bottom:var(--s4);display:flex;align-items:center;gap:var(--s3)}
+  .compliance-note .ico{width:16px;height:16px;color:var(--coral);flex:none}
+  .paywall-note{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) 13px;font-size:var(--fs-xs);color:var(--g600);margin-top:var(--s2)}
+  .paywall-note a{color:var(--ink);font-weight:700;text-decoration:underline}
+
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-top:var(--s5)}
+  .save-state{font-size:var(--fs-xs);color:var(--coral);text-align:center;margin-top:var(--s2);min-height:16px}
+
+  /* preview invoice — primary product visual, shadowed, on the type scale */
+  .inv{background:var(--white);width:100%;max-width:540px;border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:0 24px 56px -24px rgba(15,16,17,.2);padding:var(--s7) var(--s6);color:var(--ink);min-height:700px}
+  .inv .ihead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--s6);padding-bottom:var(--s4);border-bottom:1.5px solid var(--ink)}
+  .inv .isup{font-weight:700;font-size:var(--fs-h2);color:var(--ink);margin-bottom:3px}
+  .inv .isub{font-size:var(--fs-xs);color:var(--g600)}
+  .inv .doctype{font-size:var(--fs-xs);font-weight:700;letter-spacing:.16em;color:var(--ink);border:1.5px solid var(--ink);padding:4px 11px;border-radius:var(--r-sm)}
+  .inv .imeta{text-align:right;font-size:var(--fs-xs);color:var(--g600);margin-top:10px;font-variant-numeric:tabular-nums}
+  .inv .imeta b{color:var(--ink)}
+  .inv .iparties{display:grid;grid-template-columns:1fr 1fr;gap:var(--s5);margin-bottom:var(--s6)}
+  .inv .iparties h6{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--g400);font-weight:700;margin-bottom:5px}
+  .inv .iparties .nm{font-weight:600;font-size:var(--fs-sm);color:var(--ink);margin-bottom:3px}
+  .inv .iparties .ln{font-size:var(--fs-xs);color:var(--ink-soft);line-height:1.45}
+  .inv .iparties .vn{font-size:var(--fs-xs);color:var(--g600);margin-top:3px;font-variant-numeric:tabular-nums}
+  .inv table{width:100%;border-collapse:collapse;margin-bottom:var(--s4)}
+  .inv table th{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--g400);text-align:left;padding:7px 6px;border-bottom:1.5px solid var(--ink);font-weight:700;background:transparent}
+  .inv table th.r,.inv table td.r{text-align:right}
+  .inv table td{padding:8px 6px;border-bottom:1px solid var(--surface-2);font-size:var(--fs-sm);vertical-align:top}
+  .inv table td.r{font-variant-numeric:tabular-nums}
+  .inv .itot{margin-left:auto;width:230px;margin-bottom:var(--s5)}
+  .inv .itot .x{display:flex;justify-content:space-between;padding:4px 0;font-size:var(--fs-sm);color:var(--ink-soft)}
+  .inv .itot .x.gt{border-top:1.5px solid var(--ink);margin-top:6px;padding-top:9px;font-weight:700;font-size:var(--fs-h3);color:var(--ink)}
+  .inv .itot .x .v{font-variant-numeric:tabular-nums}
+  .inv .ipaybox{background:var(--coral);border:none;border-radius:var(--r-md);padding:var(--s4);margin-bottom:var(--s4);display:flex;align-items:center;gap:var(--s3);box-shadow:0 8px 20px -8px rgba(255,107,44,.5)}
+  .inv .ipaybox .ico{width:18px;height:18px;color:var(--white);flex:none}
+  .inv .ipaybox .tx{font-size:var(--fs-xs);line-height:1.4;color:var(--white)}
+  .inv .ipaybox .tx b{display:block;font-weight:700;font-size:var(--fs-sm);margin-bottom:2px}
+  .inv .ipaybox .tx .lk{font-size:var(--fs-xs);color:var(--white);word-break:break-all;font-variant-numeric:tabular-nums;opacity:.75}
+  .inv .inotes{font-size:var(--fs-xs);color:var(--g600);border-top:1px solid var(--surface-2);padding-top:var(--s3);margin-top:10px}
+  .inv .ifoot{margin-top:var(--s6);padding-top:var(--s3);border-top:1px solid var(--surface-2);text-align:center;font-size:var(--fs-xs);color:var(--g400)}
+  .inv .ifoot b{color:var(--ink);font-weight:700}
+
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,16,17,.55);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-xl);max-width:480px;width:100%;padding:var(--s7);position:relative;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+  .modal h3{font-family:var(--sans);font-weight:700;font-size:var(--fs-h2);color:var(--ink);margin-bottom:8px}
+  .modal p{color:var(--ink-soft);font-size:var(--fs-sm);margin-bottom:var(--s5)}
+  .plan-pick{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-bottom:var(--s5)}
+  .plan-opt{border:1.5px solid var(--line);border-radius:var(--r-md);padding:var(--s4);cursor:pointer;background:var(--white);transition:.12s}
+  .plan-opt:hover{border-color:var(--ink)}
+  .plan-opt.sel{border:2px solid var(--ink);background:var(--surface-2)}
+  .plan-opt .pt{font-size:var(--fs-xs);font-weight:700;color:var(--g600);text-transform:uppercase;letter-spacing:.06em}
+  .plan-opt .pa{font-size:var(--fs-h3);font-weight:700;color:var(--ink);margin:5px 0 2px;line-height:1;font-variant-numeric:tabular-nums}
+  .plan-opt .pa .u{font-size:var(--fs-xs);color:var(--g600);font-weight:500}
+  .plan-opt .ps{font-size:var(--fs-xs);color:var(--g600)}
+  .plan-opt .sv{font-size:10px;font-weight:700;color:var(--ink);background:var(--coral-soft);padding:2px 7px;border-radius:var(--r-sm);display:inline-block;margin-top:4px}
+  .modal-close{background:none;border:none;font-size:26px;color:var(--g400);cursor:pointer;position:absolute;top:10px;right:18px;line-height:1}
+
+  @media(max-width:980px){.ws{grid-template-columns:1fr;height:auto}.pane{height:auto}.pane.left{border-right:none;border-bottom:1px solid var(--line)}.inv{max-width:100%}}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="wrap">
+    <a href="index.html" class="logo"><img src="assets/lunga-logo.svg" alt="Lunga"></a>
+    <div class="top-actions">
+      <span id="planPill" class="pill pill-trial">Trial · 14 days</span>
+      <a href="index.html" class="btn btn-ghost btn-sm">Home</a>
+    </div>
+  </div>
+</nav>
+
+<div id="trialBanner" class="trial-banner" style="display:none"><span id="trialMsg"></span></div>
+
+<div class="ws">
+  <div class="pane left">
+    <div class="compliance-note">
+      <svg class="ico"><use href="assets/icons.svg#i-shield"/></svg>
+      <span><b style="font-weight:600">SARS Section 20 ready.</b> This invoice includes all nine mandatory tax-invoice fields.</span>
+    </div>
+
+    <div class="stitle">Document</div>
+    <div class="g3">
+      <div><label>Type</label>
+        <select id="docType">
+          <option value="Tax Invoice">Tax Invoice</option>
+          <option value="Quote">Quote</option>
+          <option value="Receipt">Receipt</option>
+        </select>
+      </div>
+      <div><label>Number</label><input id="invNo" type="text" placeholder="INV-0001"></div>
+      <div><label>Date</label><input id="invDate" type="date"></div>
+    </div>
+
+    <div class="stitle">Your business <button id="saveBiz" class="btn btn-ghost btn-sm" style="font-weight:500">Save as default</button></div>
+    <div style="margin-bottom:10px"><label class="req">Business name</label><input id="fromName" type="text" placeholder="e.g. Thabo M. Consulting"></div>
+    <div class="g2" style="margin-bottom:10px">
+      <div><label>VAT number (if registered)</label><input id="fromVat" type="text" placeholder="4123456789"></div>
+      <div><label>Contact email</label><input id="fromEmail" type="email" placeholder="you@example.co.za"></div>
+    </div>
+    <div><label>Address</label><textarea id="fromAddr" rows="2" placeholder="123 Main Road, Cape Town, 8001"></textarea></div>
+
+    <div class="stitle">Bill to</div>
+    <div style="margin-bottom:10px"><label class="req">Client name</label><input id="toName" type="text" placeholder="e.g. Acme (Pty) Ltd"></div>
+    <div class="g2" style="margin-bottom:10px">
+      <div><label>Client VAT number</label><input id="toVat" type="text" placeholder="if applicable"></div>
+      <div><label>Client email</label><input id="toEmail" type="email" placeholder="client@example.co.za"></div>
+    </div>
+    <div><label>Client address</label><textarea id="toAddr" rows="2" placeholder="45 Office Park, Sandton, 2196"></textarea></div>
+
+    <div class="stitle">Line items <button id="clearItems" class="btn btn-ghost btn-sm" style="font-weight:500">Clear</button></div>
+    <div class="items-head"><span>Description</span><span class="r">Qty</span><span class="r">Unit price</span><span class="r">Amount</span><span></span></div>
+    <div id="itemsList"></div>
+    <button class="add-item" id="addItem">+ Add line item</button>
+
+    <div class="totals-box">
+      <div class="trow"><span id="subLabel">Subtotal (excl. VAT)</span><span class="v" id="subVal">R 0.00</span></div>
+      <div class="trow" id="vatRow"><span>VAT (15%)</span><span class="v" id="vatVal">R 0.00</span></div>
+      <div class="trow gt"><span id="grandLabel">Total due</span><span class="v" id="grandVal">R 0.00</span></div>
+    </div>
+
+    <div class="stitle">Options</div>
+    <div class="toggle-row">
+      <div><span class="lb">Charge VAT (15%)</span><span class="sb">Off if you're not VAT registered</span></div>
+      <label class="sw"><input type="checkbox" id="vatToggle" checked><span class="sl"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div><span class="lb">PayFast payment link</span><span class="sb">Your client pays by Instant EFT or card</span></div>
+      <label class="sw"><input type="checkbox" id="payToggle"><span class="sl"></span></label>
+    </div>
+    <div class="paywall-note" id="paywallNote">Add your PayFast merchant ID in <a href="#" id="openSettings">settings</a> to enable payment links.</div>
+    <div style="margin-top:10px"><label>Notes / payment terms</label><textarea id="notes" rows="2" placeholder="Payment due within 14 days. Banking: FNB, Thabo M, 62 00 00 00 00, Branch 250 655."></textarea></div>
+
+    <div class="actions">
+      <button class="btn btn-ghost btn-block" id="saveBtn">Save to browser</button>
+      <button class="btn btn-primary btn-block" id="pdfBtn">Download PDF</button>
+    </div>
+    <div class="save-state" id="saveState"></div>
+  </div>
+
+  <div class="pane right">
+    <div class="inv" id="docPreview"></div>
+  </div>
+</div>
+
+<!-- UPGRADE MODAL -->
+<div class="modal-bg" id="upgradeModal">
+  <div class="modal">
+    <button class="modal-close" id="closeModal">×</button>
+    <h3>Redeem your 14 days</h3>
+    <p id="modalSub">You've just made a compliant invoice. Keep doing it — billed securely via PayFast.</p>
+    <div class="plan-pick" id="planPick">
+      <div class="plan-opt sel" data-plan="annual">
+        <div class="pt">Annual</div>
+        <div class="pa">R99<span class="u"> /mo</span></div>
+        <div class="ps">Billed R1,188/year</div>
+        <div class="sv">Save R360/yr</div>
+      </div>
+      <div class="plan-opt" data-plan="monthly">
+        <div class="pt">Monthly</div>
+        <div class="pa">R129<span class="u"> /mo</span></div>
+        <div class="ps">Month-to-month</div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="payBtn">Pay now <span style="font-weight:700">→</span></button>
+    <p style="font-size:var(--fs-sm);color:var(--ink);text-align:center;margin-top:var(--s3);font-weight:600">No commitment. Cancel anytime.</p>
+    <p style="font-size:var(--fs-xs);color:var(--g600);text-align:center;margin-top:6px">R3.30 a day — less than a cappuccino. Not ready to commit for a year? Choose Monthly.</p>
+    <p style="font-size:var(--fs-xs);color:var(--g400);text-align:center;margin-top:8px">Local preview — no real payment. On deploy, PayFast handles this securely.</p>
+  </div>
+</div>
+
+<script>
+/* LUNGA — invoice generator. Functionality preserved. SARS Section 20 compliant. */
+const { jsPDF } = window.jspdf;
+const VAT_RATE = 0.15, STORE='lunga_invoice_v1', SUB='lunga_sub_v1', BIZ='lunga_biz_default', TRIAL_DAYS=14;
+const $=id=>document.getElementById(id);
+const fmt=n=>'R '+(Math.round(n*100)/100).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const todayISO=()=>new Date().toISOString().slice(0,10);
+const fmtDate=iso=>{if(!iso)return'';const d=new Date(iso+'T00:00:00');return d.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nl2br=s=>esc(s).replace(/\n/g,'<br>');
+
+let state={docType:'Tax Invoice',invNo:'',invDate:todayISO(),fromName:'',fromVat:'',fromEmail:'',fromAddr:'',toName:'',toVat:'',toEmail:'',toAddr:'',items:[{desc:'',qty:1,price:0}],vatOn:true,payOn:false,notes:'',pfMerchant:'',nextInvNum:1};
+
+function getSub(){try{return JSON.parse(localStorage.getItem(SUB));}catch(e){return null;}}
+function trialStatus(){
+  let s=getSub(); if(!s){s={status:'trial',start:Date.now()};localStorage.setItem(SUB,JSON.stringify(s));}
+  if(s.status==='active')return{status:'active',plan:s.plan};
+  const el=Math.floor((Date.now()-s.start)/86400000), rem=TRIAL_DAYS-el;
+  if(rem<=0)return{status:'expired',daysLeft:0};
+  return{status:'trial',daysLeft:rem};
+}
+function canUsePaid(){const s=trialStatus();return s.status==='trial'||s.status==='active';}
+function isExpired(){return trialStatus().status==='expired';}
+
+function updatePlanUI(){
+  const s=trialStatus(),pill=$('planPill'),b=$('trialBanner'),m=$('trialMsg');
+  if(s.status==='active'){pill.textContent='Active · '+(s.plan==='annual'?'Annual':'Monthly');pill.className='pill pill-active';b.style.display='none';}
+  else if(s.status==='trial'){const dayNum=15-s.daysLeft;pill.textContent='Trial · Day '+dayNum+' of 14';pill.className='pill pill-trial';b.style.display='';m.innerHTML='Free trial — <b>Day '+dayNum+' of 14</b>. We\'ll remind you before day 14. No card on file. <a href="#" id="upNow">Redeem your plan</a>';$('upNow').addEventListener('click',e=>{e.preventDefault();openModal();});}
+  else{pill.textContent='Trial ended';pill.className='pill pill-expired';b.style.display='';m.innerHTML='Your 14-day trial has ended. <a href="#" id="upNow">Redeem your plan</a> to keep creating invoices.';$('upNow').addEventListener('click',e=>{e.preventDefault();openModal();});}
+}
+
+function load(){try{const s=JSON.parse(localStorage.getItem(STORE));if(s)state={...state,...s};}catch(e){}const bz=localStorage.getItem(BIZ);if(bz){try{const b=JSON.parse(bz);['fromName','fromVat','fromEmail','fromAddr'].forEach(k=>{if(b[k]&&!state[k])state[k]=b[k];});}catch(e){}}if(!state.invNo&&state.nextInvNum)state.invNo='INV-'+String(state.nextInvNum).padStart(4,'0');}
+function persist(){localStorage.setItem(STORE,JSON.stringify(state));}
+
+function renderItems(){
+  const l=$('itemsList');l.innerHTML='';
+  state.items.forEach((it,i)=>{const r=document.createElement('div');r.className='item-row';r.innerHTML=`<input data-i="${i}" data-f="desc" placeholder="Description of goods / service" value="${esc(it.desc)}"><input data-i="${i}" data-f="qty" type="number" min="0" step="any" value="${it.qty}"><input data-i="${i}" data-f="price" type="number" min="0" step="0.01" value="${it.price}"><div class="item-amt">${fmt((it.qty||0)*(it.price||0))}</div><button class="item-del" data-del="${i}" title="remove">×</button>`;l.appendChild(r);});
+  l.querySelectorAll('input').forEach(inp=>{inp.addEventListener('input',e=>{const i=+e.target.dataset.i,f=e.target.dataset.f;let v=e.target.value;if(f==='qty'||f==='price')v=parseFloat(v)||0;state.items[i][f]=v;e.target.closest('.item-row').querySelector('.item-amt').textContent=fmt((state.items[i].qty||0)*(state.items[i].price||0));updateTotals();renderPreview();scheduleSave();});});
+  l.querySelectorAll('[data-del]').forEach(b=>{b.addEventListener('click',e=>{const i=+e.target.dataset.del;state.items.splice(i,1);if(state.items.length===0)state.items.push({desc:'',qty:1,price:0});renderItems();updateTotals();renderPreview();persist();});});
+}
+function calc(){let sub=state.items.reduce((s,it)=>s+(it.qty||0)*(it.price||0),0),vat=state.vatOn?sub*VAT_RATE:0;return{sub,vat,total:sub+vat};}
+function updateTotals(){const{sub,vat,total}=calc();$('subVal').textContent=fmt(sub);$('vatVal').textContent=fmt(vat);$('grandVal').textContent=fmt(total);$('subLabel').textContent=state.vatOn?'Subtotal (excl. VAT)':'Subtotal';$('vatRow').style.display=state.vatOn?'':'none';$('grandLabel').textContent=state.docType==='Receipt'?'Total paid':state.docType==='Quote'?'Total quoted':'Total due';}
+
+function bindForm(){
+  const m={docType:'docType',invNo:'invNo',invDate:'invDate',fromName:'fromName',fromVat:'fromVat',fromEmail:'fromEmail',fromAddr:'fromAddr',toName:'toName',toVat:'toVat',toEmail:'toEmail',toAddr:'toAddr',notes:'notes'};
+  Object.entries(m).forEach(([k,id])=>{const el=$(id);el.value=state[k]??'';el.addEventListener('input',e=>{state[k]=e.target.value;renderPreview();scheduleSave();});});
+  $('vatToggle').checked=state.vatOn;$('payToggle').checked=state.payOn;
+  $('vatToggle').addEventListener('change',e=>{state.vatOn=e.target.checked;if(!state.vatOn&&state.docType==='Tax Invoice'){state.docType='Quote';$('docType').value='Quote';}updateTotals();renderPreview();persist();});
+  $('payToggle').addEventListener('change',e=>{const wantOn=e.target.checked;if(wantOn&&isExpired()){e.target.checked=false;openModal();return;}state.payOn=wantOn;if(state.payOn&&!state.pfMerchant)flash('Add your PayFast merchant ID — see the note below.');renderPreview();persist();});
+  $('docType').addEventListener('change',e=>{if(e.target.value==='Tax Invoice'&&!state.vatOn){state.vatOn=true;$('vatToggle').checked=true;}state.docType=e.target.value;updateTotals();renderPreview();scheduleSave();});
+  $('addItem').addEventListener('click',()=>{state.items.push({desc:'',qty:1,price:0});renderItems();});
+  $('clearItems').addEventListener('click',()=>{state.items=[{desc:'',qty:1,price:0}];renderItems();updateTotals();renderPreview();persist();});
+  $('saveBtn').addEventListener('click',()=>{persist();flash('Saved to this browser.');});
+  $('saveBiz').addEventListener('click',()=>{localStorage.setItem(BIZ,JSON.stringify({fromName:state.fromName,fromVat:state.fromVat,fromEmail:state.fromEmail,fromAddr:state.fromAddr}));flash('Business details saved as default.');});
+  $('pdfBtn').addEventListener('click',downloadPDF);
+  $('openSettings').addEventListener('click',e=>{e.preventDefault();const id=prompt('PayFast Merchant ID (for payment links):',state.pfMerchant||'');if(id!==null){state.pfMerchant=id.trim();persist();renderPreview();}});
+  $('closeModal').addEventListener('click',closeModal);
+  $('payBtn').addEventListener('click',simulatePay);
+  document.querySelectorAll('.plan-opt').forEach(o=>o.addEventListener('click',()=>{document.querySelectorAll('.plan-opt').forEach(x=>x.classList.remove('sel'));o.classList.add('sel');}));
+  $('upgradeModal').addEventListener('click',e=>{if(e.target===$('upgradeModal'))closeModal();});
+}
+let st;function scheduleSave(){clearTimeout(st);st=setTimeout(persist,800);}
+function flash(m){$('saveState').textContent=m;setTimeout(()=>{$('saveState').textContent='';},2400);}
+function openModal(){$('upgradeModal').classList.add('show');}
+function closeModal(){$('upgradeModal').classList.remove('show');}
+
+function renderPreview(){
+  const{sub,vat,total}=calc();const isTax=state.docType==='Tax Invoice',isQuote=state.docType==='Quote',isReceipt=state.docType==='Receipt';
+  const showPay=state.payOn&&canUsePaid()&&state.pfMerchant&&!isQuote;
+  const pf=state.pfMerchant?`payfast.co.za/eng/process?merchant_id=${encodeURIComponent(state.pfMerchant)}&m_payment_id=${encodeURIComponent(state.invNo||'INV')}&amount=${total.toFixed(2)}&item_name=${encodeURIComponent('Invoice '+(state.invNo||''))}`:'';
+  const rows=state.items.filter(it=>it.desc||it.qty||it.price).map(it=>`<tr><td>${esc(it.desc)||'—'}</td><td class="r">${it.qty||''}</td><td class="r">${fmt(it.price||0)}</td><td class="r">${fmt((it.qty||0)*(it.price||0))}</td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--g400);text-align:center;padding:18px">Add line items to see them here</td></tr>`;
+  const vb=state.vatOn?`<div class="x"><span>VAT (15%)</span><span class="v">${fmt(vat)}</span></div>`:'';
+  const pb=showPay?`<div class="ipaybox"><svg class="ico"><use href="assets/icons.svg#i-bolt"/></svg><div class="tx"><b>Pay ${fmt(total)} now</b>Instant EFT or card via PayFast<br><span class="lk">${esc(pf)}</span></div></div>`:'';
+  $('docPreview').innerHTML=`<div class="ihead"><div><div class="isup">${esc(state.fromName)||'Your Business'}</div><div class="isub">${nl2br(state.fromAddr)}${state.fromEmail?' · '+esc(state.fromEmail):''}</div>${state.vatOn&&state.fromVat?`<div class="isub">VAT: ${esc(state.fromVat)}</div>`:''}</div><div><div class="doctype">${state.docType.toUpperCase()}</div><div class="imeta"><b>${esc(state.invNo)||'INV-0001'}</b></div><div class="imeta">${fmtDate(state.invDate)}</div></div></div><div class="iparties"><div><h6>From</h6><div class="nm">${esc(state.fromName)||'Your Business'}</div></div><div><h6>${isQuote?'Quoted to':isReceipt?'Received from':'Bill to'}</h6><div class="nm">${esc(state.toName)||'Client name'}</div><div class="ln">${nl2br(state.toAddr)}</div>${state.toEmail?`<div class="ln">${esc(state.toEmail)}</div>`:''}${state.vatOn&&state.toVat?`<div class="vn">VAT: ${esc(state.toVat)}</div>`:''}</div></div><table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>${pb}<div class="itot"><div class="x"><span>${state.vatOn?'Subtotal (excl. VAT)':'Subtotal'}</span><span class="v">${fmt(sub)}</span></div>${vb}<div class="x gt"><span>${isReceipt?'Total paid':isQuote?'Total quoted':'Total due'}</span><span class="v">${fmt(total)}</span></div></div>${state.notes?`<div class="inotes"><b>Notes:</b><br>${nl2br(state.notes)}</div>`:''}<div class="ifoot">${isTax?'Tax invoice issued under Section 20, Value-Added Tax Act, 1991 · ':''}Made with <b>Lunga</b></div>`;
+}
+
+function downloadPDF(){
+  if(isExpired()){openModal();return;}
+  const doc=new jsPDF({unit:'pt',format:'a4'});const W=doc.internal.pageSize.getWidth(),M=40,CW=W-M*2;
+  const isTax=state.docType==='Tax Invoice',isQuote=state.docType==='Quote',isReceipt=state.docType==='Receipt';
+  const{sub,vat,total}=calc();let y=46;
+  doc.setFillColor(15,16,17);doc.rect(0,0,W,4,'F');
+  doc.setTextColor(15,16,17);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(state.fromName||'Your Business',M,y+4);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(153,153,148);doc.text('Made with Lunga',M,y+15);
+  doc.setDrawColor(15,16,17);doc.setLineWidth(1);doc.roundedRect(W-M-100,y-4,100,20,2,2,'S');
+  doc.setTextColor(15,16,17);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(state.docType.toUpperCase(),W-M-50,y+9,{align:'center'});
+  y+=30;doc.setDrawColor(15,16,17);doc.setLineWidth(1.5);doc.line(M,y,W-M,y);y+=18;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(153,153,148);doc.text('Number:',M,y);doc.text('Date:',M+210,y);
+  doc.setTextColor(15,16,17);doc.text(state.invNo||'INV-0001',M+44,y);doc.text(fmtDate(state.invDate),M+242,y);y+=20;
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(153,153,148);doc.text('FROM',M,y);doc.text(isQuote?'QUOTED TO':isReceipt?'RECEIVED FROM':'BILL TO',M+CW/2,y);y+=12;
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(15,16,17);doc.text(state.fromName||'Your Business',M,y);doc.text(state.toName||'Client name',M+CW/2,y);y+=14;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(41,41,39);
+  const fl=[state.fromAddr,state.fromEmail].filter(Boolean).join('\n').split('\n'),tl=[state.toAddr,state.toEmail].filter(Boolean).join('\n').split('\n'),mx=Math.max(fl.length,tl.length);
+  for(let i=0;i<mx;i++){if(fl[i])doc.text(fl[i],M,y+i*12);if(tl[i])doc.text(tl[i],M+CW/2,y+i*12);}y+=mx*12+4;
+  if(state.vatOn){doc.setFontSize(8);doc.setTextColor(153,153,148);if(state.fromVat)doc.text('VAT: '+state.fromVat,M,y);if(state.toVat)doc.text('VAT: '+state.toVat,M+CW/2,y);y+=14;}y+=6;
+  const cD=CW*.46,cQ=CW*.14,cP=CW*.20,cA=CW*.20;
+  doc.setFillColor(247,247,245);doc.rect(M,y-11,CW,18,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(98,98,94);
+  doc.text('DESCRIPTION',M+6,y);doc.text('QTY',M+cD+6,y,{align:'right'});doc.text('UNIT PRICE',M+cD+cQ+cP-6,y,{align:'right'});doc.text('AMOUNT',W-M-6,y,{align:'right'});
+  y+=12;doc.setDrawColor(222,222,218);doc.setLineWidth(.5);doc.line(M,y,W-M,y);y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(40,40,40);
+  state.items.filter(it=>it.desc||it.qty||it.price).forEach(it=>{const amt=(it.qty||0)*(it.price||0);const dl=doc.splitTextToSize(it.desc||'—',cD-12);const rh=Math.max(16,dl.length*12);if(y+rh>760){doc.addPage();y=46;}dl.forEach((ln,i)=>doc.text(ln,M+6,y+i*12));doc.text(String(it.qty||''),M+cD+6,y,{align:'right'});doc.text(fmt(it.price||0),M+cD+cQ+cP-6,y,{align:'right'});doc.text(fmt(amt),W-M-6,y,{align:'right'});y+=rh;doc.line(M,y,W-M,y);y+=2;});
+  if(state.items.every(it=>!it.desc&&!it.qty&&!it.price)){doc.setTextColor(170,170,170);doc.text('(no line items)',W/2,y+6,{align:'center'});y+=20;}y+=10;
+  const bW=200,bX=W-M-bW;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(41,41,39);doc.text(state.vatOn?'Subtotal (excl. VAT)':'Subtotal',bX,y);doc.text(fmt(sub),W-M,y,{align:'right'});y+=16;
+  if(state.vatOn){doc.text('VAT (15%)',bX,y);doc.text(fmt(vat),W-M,y,{align:'right'});y+=16;}
+  doc.setDrawColor(15,16,17);doc.setLineWidth(1.5);doc.line(bX,y-4,W-M,y-4);y+=8;
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(15,16,17);doc.text(isReceipt?'Total paid':isQuote?'Total quoted':'Total due',bX,y);doc.text(fmt(total),W-M,y,{align:'right'});y+=26;
+  if(state.payOn&&canUsePaid()&&state.pfMerchant&&!isQuote){const pfL=`payfast.co.za/eng/process?merchant_id=${state.pfMerchant}&m_payment_id=${encodeURIComponent(state.invNo||'')}&amount=${total.toFixed(2)}&item_name=${encodeURIComponent('Invoice '+(state.invNo||''))}`;doc.setFillColor(243,255,209);doc.setDrawColor(15,16,17);doc.setLineWidth(1.2);doc.roundedRect(M,y,CW,40,2,2,'FD');doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(15,16,17);doc.text('Pay now via PayFast',M+12,y+15);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(98,98,94);doc.splitTextToSize(pfL,CW-24).forEach((ln,i)=>doc.text(ln,M+12,y+28+i*9));y+=50;}
+  if(state.notes){y+=6;doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(98,98,94);doc.text('NOTES',M,y);y+=12;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(41,41,39);doc.splitTextToSize(state.notes,CW).forEach(ln=>{doc.text(ln,M,y);y+=12;});}
+  const fY=doc.internal.pageSize.getHeight()-40;doc.setDrawColor(222,222,218);doc.line(M,fY-10,W-M,fY-10);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(98,98,94);if(isTax)doc.text('Tax invoice issued under Section 20, Value-Added Tax Act, 1991.',W/2,fY,{align:'center'});doc.setTextColor(15,16,17);doc.setFont('helvetica','bold');doc.text('Made with Lunga',W/2,fY+12,{align:'center'});
+  const fn=`${(state.docType||'invoice').replace(/\s+/g,'-')}-${(state.invNo||'draft').replace(/\s+/g,'-')}.pdf`;doc.save(fn);
+  if(state.invNo){const m=state.invNo.match(/(\d+)$/);if(m){state.nextInvNum=parseInt(m[1])+1;persist();}}
+}
+
+function simulatePay(){const plan=document.querySelector('.plan-opt.sel')?.dataset.plan||'annual';const amt=plan==='annual'?'R1,188/year (R99/mo)':'R129/month';if(confirm(`LOCAL PREVIEW — no real payment.\n\nOn deploy this opens PayFast checkout for ${amt} (${plan}).\nPayFast recurring billing handles subscriptions via tokenisation.\n\nActivate subscription for this preview now?`)){localStorage.setItem(SUB,JSON.stringify({status:'active',plan,since:Date.now()}));updatePlanUI();closeModal();flash('Active — all features available.');}}
+
+load();bindForm();renderItems();updateTotals();updatePlanUI();renderPreview();
+</script>
+</body>
+</html>
