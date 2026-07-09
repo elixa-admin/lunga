@@ -1,0 +1,6 @@
+# https://lunga.co.za/robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://lunga.co.za/sitemap.xml
