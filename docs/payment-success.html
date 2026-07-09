@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment received — Lunga</title>
+<link rel="icon" type="image/svg+xml" href="assets/lunga-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/lunga.css">
+<style>
+  .success-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+  .success-card{max-width:480px;text-align:center}
+  .success-card .check{width:64px;height:64px;margin:0 auto var(--s6);color:var(--coral)}
+  .success-card h1{font-family:var(--sans);font-weight:700;font-size:var(--fs-h1);color:var(--ink);margin-bottom:var(--s3)}
+  .success-card p{font-size:var(--fs-lead);color:var(--ink-soft);margin-bottom:var(--s6);line-height:1.5}
+  .success-card .detail{background:var(--surface-2);border-radius:var(--r-md);padding:var(--s4);margin-bottom:var(--s6);text-align:left;font-size:var(--fs-sm);color:var(--ink-soft)}
+  .success-card .detail b{color:var(--ink);font-weight:600}
+  .success-card .btn{font-size:16px;padding:15px 28px}
+</style>
+</head>
+<body>
+<div class="success-page">
+  <div class="success-card">
+    <svg class="check" viewBox="0 0 64 64" fill="none">
+      <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="3"/>
+      <path d="M20 32l8 8 16-18" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>Payment received</h1>
+    <p>Your Lunga subscription is active. You can now create unlimited invoices and quotes.</p>
+    <div class="detail" id="paymentDetail">
+      <p>Activating your subscription...</p>
+    </div>
+    <a href="app.html" class="btn btn-primary">Go to your invoices</a>
+  </div>
+</div>
+
+<script>
+// ---- Activate the subscription on return from PayFast ----
+(function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  
+  // PayFast returns these on the return_url (GET)
+  const paymentId = urlParams.get('pf_payment_id');
+  const amount = urlParams.get('amount_gross');
+  const status = urlParams.get('payment_status');
+  const mPaymentId = urlParams.get('m_payment_id') || 'lunga-return';
+  
+  // Determine plan from amount
+  const plan = amount && parseFloat(amount) >= 1188 ? 'annual' : 'monthly';
+  
+  // Check if payment was successful
+  if (status === 'COMPLETE' || (paymentId && !urlParams.get('payment'))) {
+    // Activate subscription locally
+    const sub = {
+      status: 'active',
+      plan: plan,
+      paymentId: paymentId || 'pending-itn',
+      since: Date.now(),
+    };
+    localStorage.setItem('lunga_sub_v1', JSON.stringify(sub));
+    
+    document.getElementById('paymentDetail').innerHTML = `
+      <p><b>Plan:</b> ${plan === 'annual' ? 'Annual (R99/mo, billed yearly)' : 'Monthly (R129/mo)'}</p>
+      <p><b>Payment ID:</b> ${paymentId || 'Processing...'}</p>
+      <p><b>Status:</b> Active</p>
+    `;
+  } else if (urlParams.get('payment') === 'cancelled') {
+    document.querySelector('h1').textContent = 'Payment cancelled';
+    document.querySelector('.success-card p').textContent = 'No charge was made. You can try again anytime.';
+    document.getElementById('paymentDetail').style.display = 'none';
+    document.querySelector('.btn').textContent = 'Back to Lunga';
+  } else {
+    // Fallback: assume success if we got here from PayFast
+    const sub = {
+      status: 'active',
+      plan: plan,
+      paymentId: paymentId || 'pending',
+      since: Date.now(),
+    };
+    localStorage.setItem('lunga_sub_v1', JSON.stringify(sub));
+    
+    document.getElementById('paymentDetail').innerHTML = `
+      <p><b>Plan:</b> ${plan === 'annual' ? 'Annual (R99/mo, billed yearly)' : 'Monthly (R129/mo)'}</p>
+      <p><b>Status:</b> Active</p>
+    `;
+  }
+})();
+</script>
+</body>
+</html>

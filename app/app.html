@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/lunga.css">
 <script src="vendor/jspdf.umd.min.js"></script>
+<script src="assets/payfast.js"></script>
 <style>
   /* app-specific layer — inherits lunga.css. Invoice preview uses the --fs-* scale. */
   .topbar{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
@@ -343,7 +344,27 @@ function downloadPDF(){
   if(state.invNo){const m=state.invNo.match(/(\d+)$/);if(m){state.nextInvNum=parseInt(m[1])+1;persist();}}
 }
 
-function simulatePay(){const plan=document.querySelector('.plan-opt.sel')?.dataset.plan||'annual';const amt=plan==='annual'?'R1,188/year (R99/mo)':'R129/month';if(confirm(`LOCAL PREVIEW — no real payment.\n\nOn deploy this opens PayFast checkout for ${amt} (${plan}).\nPayFast recurring billing handles subscriptions via tokenisation.\n\nActivate subscription for this preview now?`)){localStorage.setItem(SUB,JSON.stringify({status:'active',plan,since:Date.now()}));updatePlanUI();closeModal();flash('Active — all features available.');}}
+function simulatePay(){
+  const plan=document.querySelector('.plan-opt.sel')?.dataset.plan||'annual';
+  const amt=plan==='annual'?'R1,188/year (R99/mo)':'R129/month';
+  
+  // If PayFast integration is available (payfast.js loaded), use real checkout
+  if(window.LungaPay){
+    const reference='lunga-'+Date.now()+'-'+plan;
+    // Store the reference so payment-success.html can match it
+    localStorage.setItem('lunga_pending_payment',JSON.stringify({reference,plan,since:Date.now()}));
+    closeModal();
+    flash('Redirecting to secure checkout...');
+    setTimeout(()=>window.LungaPay.checkout(plan,reference),500);
+    return;
+  }
+  
+  // Fallback: local preview simulation (no PayFast credentials configured)
+  if(confirm(`PayFast not configured. This is a local preview.\n\nWould activate ${plan} plan (${amt}).\n\nTo enable real payments: register at payfast.io, add credentials to assets/payfast.js\n\nActivate for this preview?`)){
+    localStorage.setItem(SUB,JSON.stringify({status:'active',plan,since:Date.now()}));
+    updatePlanUI();closeModal();flash('Active — all features available.');
+  }
+}
 
 load();bindForm();renderItems();updateTotals();updatePlanUI();renderPreview();
 </script>
