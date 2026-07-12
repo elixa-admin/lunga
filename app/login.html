@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Lunga</title>
+<link rel="icon" type="image/svg+xml" href="assets/lunga-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/lunga.css">
+<script src="assets/supabase-config.js"></script>
+<style>
+  .auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+  .auth-card{max-width:400px;width:100%;background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s7) var(--s6)}
+  .auth-card .logo{display:block;margin:0 auto var(--s5);text-align:center}
+  .auth-card .logo img{height:32px}
+  .auth-card h1{font-family:var(--sans);font-weight:700;font-size:var(--fs-h3);text-align:center;margin-bottom:var(--s2);color:var(--ink)}
+  .auth-card .sub{text-align:center;font-size:var(--fs-sm);color:var(--g600);margin-bottom:var(--s6)}
+  .auth-form{display:flex;flex-direction:column;gap:var(--s3)}
+  .auth-form label{font-size:var(--fs-xs);font-weight:600;color:var(--g600);margin-bottom:4px;display:block}
+  .auth-form input{width:100%;font-size:15px;padding:11px 14px}
+  .auth-form .btn{width:100%;margin-top:var(--s2)}
+  .auth-switch{text-align:center;font-size:var(--fs-sm);color:var(--g600);margin-top:var(--s4)}
+  .auth-switch a{color:var(--coral);font-weight:600;cursor:pointer}
+  .auth-error{background:var(--error-bg);color:var(--error);border-radius:var(--r-md);padding:10px 14px;font-size:var(--fs-sm);margin-bottom:var(--s3);display:none}
+  .auth-note{background:var(--surface-2);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:var(--fs-xs);color:var(--g600);margin-top:var(--s5);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <a href="index.html" class="logo"><img src="assets/lunga-logo.svg" alt="Lunga"></a>
+    
+    <h1 id="authTitle">Create your account</h1>
+    <p class="sub" id="authSub">Start your 14-day free trial. No card needed.</p>
+    
+    <div class="auth-error" id="authError"></div>
+    
+    <form class="auth-form" id="authForm">
+      <div>
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.co.za" required autocomplete="email">
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="At least 6 characters" required autocomplete="new-password" minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary" id="authSubmit">Create account</button>
+    </form>
+    
+    <p class="auth-switch" id="authSwitch">
+      Already have an account? <a id="switchMode">Sign in</a>
+    </p>
+    
+    <div class="auth-note">
+      Your business details, clients, and invoices are saved securely. Each account is private — no other user can see your data.
+    </div>
+  </div>
+</div>
+
+<script src="assets/lunga-data.js"></script>
+<script>
+let isSignUp = true;
+
+const form = document.getElementById('authForm');
+const title = document.getElementById('authTitle');
+const sub = document.getElementById('authSub');
+const submitBtn = document.getElementById('authSubmit');
+const switchLink = document.getElementById('switchMode');
+const switchText = document.getElementById('authSwitch');
+const errorEl = document.getElementById('authError');
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = 'block';
+}
+
+function clearError() {
+  errorEl.style.display = 'none';
+}
+
+function switchMode() {
+  isSignUp = !isSignUp;
+  if (isSignUp) {
+    title.textContent = 'Create your account';
+    sub.textContent = 'Start your 14-day free trial. No card needed.';
+    submitBtn.textContent = 'Create account';
+    switchText.innerHTML = 'Already have an account? <a id="switchMode">Sign in</a>';
+    document.getElementById('password').setAttribute('autocomplete', 'new-password');
+  } else {
+    title.textContent = 'Sign in';
+    sub.textContent = 'Welcome back.';
+    submitBtn.textContent = 'Sign in';
+    switchText.innerHTML = 'New to Lunga? <a id="switchMode">Create an account</a>';
+    document.getElementById('password').setAttribute('autocomplete', 'current-password');
+  }
+  // Re-bind switch link
+  document.getElementById('switchMode').addEventListener('click', switchMode);
+  clearError();
+}
+
+document.getElementById('switchMode').addEventListener('click', switchMode);
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearError();
+  submitBtn.textContent = isSignUp ? 'Creating...' : 'Signing in...';
+  submitBtn.disabled = true;
+
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  try {
+    // Init Supabase if not already
+    const ok = await LungaData.init();
+    if (!ok) {
+      showError('Unable to connect. Please check your internet connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = isSignUp ? 'Create account' : 'Sign in';
+      return;
+    }
+
+    if (isSignUp) {
+      await LungaData.signUp(email, password);
+      // After signup, redirect to the app
+      window.location.href = 'app.html?welcome=1';
+    } else {
+      await LungaData.signIn(email, password);
+      window.location.href = 'app.html';
+    }
+  } catch (err) {
+    showError(err.message || 'Something went wrong. Please try again.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = isSignUp ? 'Create account' : 'Sign in';
+  }
+});
+
+// If already logged in, redirect to app
+(async () => {
+  const ok = await LungaData.init();
+  if (ok && LungaData.isLoggedIn()) {
+    window.location.href = 'app.html';
+  }
+})();
+</script>
+</body>
+</html>
